@@ -1,7 +1,7 @@
 {
   "name": "dsh-project-cost",
-  "version": "1.0.0",
-  "description": "按项目（会话工作目录）统计 DeepSeek Harness 的 Token 花费：累计/今日用量、真实金额、每项目明细与最贵会话，并注册一个只读 Agent 工具。",
+  "version": "1.0.1",
+  "description": "Per-project token spend for DeepSeek Harness: attribute cumulative/today token usage and real billed cost to each session working directory, with an expandable settings panel and a read-only agent tool.",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -19,6 +19,8 @@
     "icon.svg",
     "README.md",
     "README.zh-CN.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
     "LICENSE"
   ],
   "keywords": [
