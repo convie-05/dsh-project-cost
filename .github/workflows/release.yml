@@ -1,0 +1,78 @@
+# Release
+#
+# Push a `v*` tag to publish. This workflow:
+#   1. re-runs the same verification as CI,
+#   2. packs the exact file list declared in `package.json`,
+#   3. attaches the tarball to a GitHub Release.
+#
+# To also publish to npm: add an `NPM_TOKEN` repository secret and set the
+# repository variable `NPM_PUBLISH=true`.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build the tarball but do not create a Release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Syntax check
+        run: |
+          node --check index.js
+          node --check client.js
+
+      - name: Pack
+        id: pack
+        run: |
+          npm pack --json > pack.json
+          TARBALL=$(node -e "console.log(require('./pack.json')[0].filename)")
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          node -e "
+            const info = require('./pack.json')[0];
+            console.log('packed ' + info.entryCount + ' files, ' + info.size + ' bytes');
+            for (const f of info.files.map((x) => x.path)) console.log('  ' + f);
+          "
+
+      - name: Verify tarball contents
+        run: |
+          node -e "
+            const info = require('./pack.json')[0];
+            const want = ['index.js', 'client.js', 'cordis.patch.yml', 'package.json', 'README.md', 'LICENSE'];
+            const got = info.files.map((f) => f.path);
+            const fail = (msg) => { console.error('FAIL: ' + msg); process.exit(1); };
+            for (const w of want) if (!got.includes(w)) fail('missing from tarball: ' + w);
+            if (got.some((p) => p.endsWith('.bak') || p.includes('.bak-'))) fail('backup file leaked into tarball');
+            console.log('tarball contents verified');
+          "
+
+      - name: Publish to npm
+        if: vars.NPM_PUBLISH == 'true'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' || inputs.dry_run == false
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.pack.outputs.tarball }}
+          generate_release_notes: true

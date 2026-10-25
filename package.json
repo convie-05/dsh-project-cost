@@ -1,0 +1,62 @@
+{
+  "name": "dsh-project-cost",
+  "version": "1.0.0",
+  "description": "按项目（会话工作目录）统计 DeepSeek Harness 的 Token 花费：累计/今日用量、真实金额、每项目明细与最贵会话，并注册一个只读 Agent 工具。",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "token",
+    "usage",
+    "cost",
+    "billing",
+    "project",
+    "observability"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/convie-05/dsh-project-cost.git"
+  },
+  "bugs": {
+    "url": "https://github.com/convie-05/dsh-project-cost/issues"
+  },
+  "homepage": "https://github.com/convie-05/dsh-project-cost#readme"
+}

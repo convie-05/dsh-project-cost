@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Project cost">
+  <defs>
+    <linearGradient id="pc-bag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="16" width="52" height="42" rx="10" fill="url(#pc-bag)"/>
+  <path d="M22 18c0-6 4.5-10 10-10s10 4 10 10" fill="none" stroke="#93c5fd" stroke-width="4" stroke-linecap="round"/>
+  <path d="M32 26v22M26 32h8a4 4 0 0 1 0 8h-8M26 40h9" fill="none" stroke="#e0f2fe" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="47" cy="24" r="7" fill="#facc15"/>
+  <path d="M47 20.5v7M44.5 22.5h4a1.6 1.6 0 0 1 0 3h-3a1.6 1.6 0 0 0 0 3h4" fill="none" stroke="#78350f" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

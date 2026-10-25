@@ -1,0 +1,165 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify on ${{ matrix.os }} / node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: ['20', '22']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Syntax check (host + client halves)
+        shell: bash
+        run: |
+          node --check index.js
+          node --check client.js
+
+      - name: Validate package.json shape
+        shell: bash
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            const fail = (msg) => { console.error('FAIL: ' + msg); process.exit(1); };
+            if (!pkg.name) fail('name missing');
+            if (!pkg.version) fail('version missing');
+            if (pkg.private === true) fail('package must not be private when published');
+            if (!pkg.license) fail('license missing');
+            if (!pkg.dsh || !pkg.dsh.bundle || !pkg.dsh.bundle.patch) fail('dsh.bundle.patch missing');
+            if (!pkg.exports || !pkg.exports['.'] || !pkg.exports['./client']) fail('exports . / ./client missing');
+            console.log('package.json OK —', pkg.name + '@' + pkg.version);
+          "
+
+      - name: Verify declared files exist
+        shell: bash
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const pkg = require('./package.json');
+            const fail = (msg) => { console.error('FAIL: ' + msg); process.exit(1); };
+            // 逐个展开 files 里的 glob（仅支持本项目用到的两种形式：字面量、dir/*.ext）
+            const expand = (pattern) => {
+              if (!pattern.includes('*')) return [pattern];
+              const dir = path.dirname(pattern);
+              const ext = pattern.slice(pattern.lastIndexOf('*') + 1);
+              if (!fs.existsSync(dir)) return [];
+              return fs.readdirSync(dir).filter((n) => n.endsWith(ext)).map((n) => path.join(dir, n));
+            };
+            for (const pattern of pkg.files) {
+              const matches = expand(pattern);
+              if (matches.length === 0) fail('declared file not found: ' + pattern);
+              for (const m of matches) if (!fs.existsSync(m)) fail('missing: ' + m);
+            }
+            for (const rel of [pkg.main, pkg.dsh.bundle.patch]) {
+              if (!fs.existsSync(rel)) fail('missing runtime file: ' + rel);
+            }
+            console.log('all declared files present');
+          "
+
+      - name: Smoke test the host half
+        shell: bash
+        run: |
+          node -e "
+            const path = require('path');
+            const url = require('url');
+            const entry = url.pathToFileURL(path.resolve('index.js')).href;
+            import(entry).then((mod) => {
+              const fail = (msg) => { console.error('FAIL: ' + msg); process.exit(1); };
+              if (typeof mod.apply !== 'function') fail('apply export missing');
+              if (typeof mod.name !== 'string' || !mod.name) fail('name export missing');
+              if (!Array.isArray(mod.inject)) fail('inject export missing');
+              // 注册到假 ctx，确认路由与工具的接线不抛错
+              const routes = {};
+              const ctx = {
+                get: () => undefined,
+                webServer: { register: (r) => { routes[r.path] = r; return () => {}; } },
+                on: () => () => {},
+                effect: (fn) => { fn(); return () => {}; },
+              };
+              mod.apply(ctx, {});
+              if (!routes['/dsh-project-cost/api/overview']) fail('overview route not registered');
+              if (!routes['/dsh-project-cost/api/refresh']) fail('refresh route not registered');
+              console.log('host half smoke test OK — routes:', Object.keys(routes).join(', '));
+              process.exit(0);
+            }).catch((e) => { console.error('FAIL:', e); process.exit(1); });
+          "
+
+      - name: Smoke test the client half
+        shell: bash
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            const fail = (msg) => { console.error('FAIL: ' + msg); process.exit(1); };
+
+            let captured = null;
+            globalThis.window = {
+              __ModuleLoader__: { load: (def) => { captured = def; } },
+              setInterval: () => 0,
+              clearInterval: () => {},
+              addEventListener: () => {},
+              removeEventListener: () => {},
+            };
+            const node = (tag) => ({
+              tagName: tag, childNodes: [], style: {}, dataset: {}, attributes: {},
+              setAttribute(k, v) { this.attributes[k] = String(v); }, getAttribute(k) { return this.attributes[k] ?? null; },
+              appendChild(c) { this.childNodes.push(c); return c; }, removeChild(c) { return c; },
+              get firstChild() { return this.childNodes[0] ?? null; },
+              set textContent(v) { this._t = String(v); this.childNodes = []; }, get textContent() { return this._t ?? ''; },
+              addEventListener() {}, set className(v) { this._c = v; }, get className() { return this._c ?? ''; },
+            });
+            globalThis.document = {
+              head: { appendChild() {} }, createElement: node, createTextNode: (t) => ({ textContent: String(t) }),
+              getElementById: () => null, addEventListener() {}, removeEventListener() {}, hidden: false,
+            };
+            Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true });
+            globalThis.fetch = async () => ({ ok: false, status: 0, json: async () => ({}) });
+            globalThis.AbortSignal = { timeout: () => undefined };
+
+            const REACT = {
+              createElement: (type, props, ...children) => ({ type, props: { ...(props ?? {}), children } }),
+              useState: (i) => [typeof i === 'function' ? i() : i, () => {}],
+              useEffect: () => {},
+              useRef: (i) => ({ current: i }),
+            };
+            REACT.default = REACT;
+
+            const src = fs.readFileSync('client.js', 'utf8');
+            new Function('window', 'React', 'require', src)(globalThis.window, REACT, () => REACT);
+            if (!captured) fail('__ModuleLoader__.load was never called');
+            if (!captured.id) fail('module id missing');
+
+            const mod = captured.factory((n) => { if (n === 'react') return REACT; throw new Error('unexpected require: ' + n); });
+            const registered = [];
+            mod.apply({
+              locale: { getSnapshot: () => ({ active: 'zh' }), subscribe: () => () => {} },
+              get: () => undefined,
+              effect: (fn) => fn(),
+              slots: { inject: (k, cb) => cb(), register: (o, c) => { registered.push({ o, c }); return () => {}; } },
+            });
+            if (registered.length === 0) fail('no slot registration happened');
+            const entry = registered[0];
+            if (entry.o.name !== 'settings.section') fail('wrong slot: ' + entry.o.name);
+            if (typeof entry.o.label !== 'function' || !entry.o.label()) fail('label thunk must return a non-empty string');
+            // 组件必须能在无 props 的情况下渲染（ref 回调可能拿到 null，不能抛）
+            const rendered = entry.c({});
+            if (!rendered || !rendered.type) fail('component did not return an element');
+            console.log('client half smoke test OK — slot:', entry.o.name, '| id:', entry.o.id, '| label:', entry.o.label());
+            process.exit(0);
+          "

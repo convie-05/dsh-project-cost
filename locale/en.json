@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Project Cost (Tokens)",
+    "description": "Token spend per project: sums every session's cumulative usage from the DSH projection cache and groups sessions by their working directory, shown under Settings → Project Cost."
+  }
+}
