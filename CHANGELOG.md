@@ -38,3 +38,7 @@ First public release.
   "How the client half renders".
 - `React.Component` is not provided by this client runtime — class components throw at
   module-load time. Function components only.
+- **No `Config` schema is exported.** Some DSH builds throw
+  `Cannot read properties of undefined (reading 'validate')` when a row exporting
+  `Config` is activated, which fails the whole row. Configuration is read from the
+  `cordis.patch.yml` `config:` block instead; every field is range-clamped in code.

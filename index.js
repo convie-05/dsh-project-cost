@@ -806,53 +806,30 @@ function apply(ctx, config) {
 const inject = ['webServer']
 
 /**
- * 插件配置。全部字段可选，缺省即可工作。
- * 每个字段都在 readConfig() 里被读取并做范围收敛，写错值不会让插件崩。
+ * 配置说明（不使用导出的 Config Schema）
+ * ------------------------------------
+ * 这个 DSH 版本的宿主在加载 `Config` 导出时会调用一个环境中不存在的 validate
+ * 服务，抛出 `Cannot read properties of undefined (reading 'validate')`，
+ * 导致整个插件行激活失败。因此**不导出 Config**。
+ *
+ * 配置仍然完全可用：在 profile 的 cordis.patch.yml 里给本行写 `config:`，
+ * 宿主会把它作为 apply(ctx, config) 的第二个参数传进来，
+ * 所有字段都由 readConfig() 读取并做范围收敛（见下方）。
+ *
+ *   - insert:
+ *       - id: project-cost
+ *         name: dsh-project-cost
+ *         config:
+ *           dshHome: ""
+ *           costMeterPath: ""
+ *           pricePerMillion: 0
+ *           priceUnit: cny
+ *           recentDays: 30
+ *           includeLiveSessions: true
+ *           pathAliases: |
+ *             C:/projects/scratch=Sandbox
  */
-const Config = {
-  type: 'object',
-  properties: {
-    dshHome: {
-      type: 'string',
-      default: '',
-      description: 'DSH 数据根目录。留空则依次尝试 $DSH_HOME、~/.dsh。WSL/便携版/自定义 profile 时填这里。',
-    },
-    costMeterPath: {
-      type: 'string',
-      default: '',
-      description: 'dsh-cost-meter 账本路径（可选）。留空则自动探测 $DSH_HOME/storages/cost-meter/ledger.json 等常见位置。',
-    },
-    pricePerMillion: {
-      type: 'number',
-      default: 0,
-      minimum: 0,
-      description: '每百万 token 的单价，用于在缺少真实账本时估算花费。0 = 不估算。',
-    },
-    priceUnit: {
-      type: 'string',
-      default: 'cny',
-      description: '单价币种：cny 或 usd。',
-    },
-    recentDays: {
-      type: 'number',
-      default: 30,
-      minimum: 7,
-      maximum: 365,
-      description: '「近 N 天」汇总口径。',
-    },
-    includeLiveSessions: {
-      type: 'boolean',
-      default: true,
-      description: '是否把当前仍存活、尚未落盘投影缓存的会话计入。',
-    },
-    pathAliases: {
-      type: 'string',
-      default: '',
-      description: '项目改名：每行「工作目录=显示名」，~ 代表用户目录。',
-    },
-  },
-}
 
 export const name = PLUGIN_ID
-export { inject, apply, Config }
-export default { name: PLUGIN_ID, inject, Config, apply }
+export { inject, apply }
+export default { name: PLUGIN_ID, inject, apply }

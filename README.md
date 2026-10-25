@@ -63,6 +63,16 @@ The package already declares `dsh.bundle.patch`, so it appears in the plugin tre
 
 ## Configuration
 
+All settings are optional — the plugin runs with none of them.
+
+> **Note on the absence of `Config` schema.** This plugin deliberately does **not**
+> export a `Config` schema object. Some DSH builds throw
+> `Cannot read properties of undefined (reading 'validate')` while activating a row
+> that exports one, which makes the whole plugin row fail to load. Configuration is
+> therefore read straight from the `config:` block the loader passes to
+> `apply(ctx, config)`, and every field is range-clamped in code. Unknown or
+> malformed values are ignored rather than fatal.
+
 Add a `config:` block to the plugin row in your profile's `cordis.patch.yml`:
 
 ```yaml
@@ -154,6 +164,7 @@ Hooks (`useState` / `useEffect` / `useRef`) *are* available — this project ini
 - The projection cache's `tokenUsage` is cumulative across days; the day dimension depends on a daily ledger.
 - Archiving or deleting sessions changes the projection cache, and therefore the numbers.
 - The plugin reads files directly from disk; it does not go through DSH services for usage data. Paths are configurable for this reason.
+- No `Config` schema is exported (see Configuration above), so the plugin row does not render an auto-generated settings form. Configure it through `cordis.patch.yml`.
 
 ---
 

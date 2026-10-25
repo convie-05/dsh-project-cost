@@ -69,6 +69,14 @@ dsh plugin --profile <你的profile> add link:/绝对路径/dsh-project-cost
 
 ## 配置
 
+所有设置都是可选的 —— 不配置也能正常工作。
+
+> **为什么不导出 `Config` Schema。** 本插件**刻意不导出** `Config` 对象。
+> 某些 DSH 版本在激活导出了 `Config` 的插件行时会抛
+> `Cannot read properties of undefined (reading 'validate')`，导致整行加载失败。
+> 所以配置直接从 loader 传给 `apply(ctx, config)` 的 `config:` 块读取，
+> 每个字段在代码里做范围收敛 —— 写错值会被忽略，不会让插件崩。
+
 在 profile 的 `cordis.patch.yml` 里给插件行加 `config:`：
 
 ```yaml
@@ -165,6 +173,7 @@ function mountHost(node) {
 - 投影缓存里的 `tokenUsage` 是跨天累计值；「天」这个维度依赖按日账本。
 - 归档或删除会话会改变投影缓存，数字随之变化。
 - 插件直接读磁盘文件，不经过 DSH 服务获取用量数据 —— 所以路径做成了可配置。
+- 不导出 `Config` Schema（见上方「配置」），所以插件行不会生成自动设置表单，配置走 `cordis.patch.yml`。
 
 ---
 
